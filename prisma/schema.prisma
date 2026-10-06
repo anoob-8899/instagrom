@@ -1,0 +1,237 @@
+// Prisma schema for INSTAGROM
+// CON 03: Messaging + Realtime + Notifications + Presence + LAN
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String      @id @default(cuid())
+  username     String      @unique
+  passwordHash String
+  displayName  String
+  profilePhoto String?
+  bio          String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  sessions     Session[]
+  posts        Post[]
+  comments     Comment[]
+  likes        Like[]
+  savedPosts   SavedPost[]
+  stories      Story[]
+
+  // Follow relations
+  followers    Follow[]    @relation("UserFollowers")
+  following    Follow[]    @relation("UserFollowing")
+
+  // Messaging relations
+  conversationParticipants ConversationParticipant[]
+  sentMessages             Message[]
+
+  // Notification relations
+  receivedNotifications    Notification[]            @relation("ReceivedNotifications")
+  sentNotifications        Notification[]            @relation("SentNotifications")
+
+  // Presence relation
+  presence                 UserPresence?
+
+  @@map("users")
+}
+
+model Session {
+  id           String      @id @default(cuid())
+  sessionToken String      @unique
+  userId       String
+  expiresAt    DateTime
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([sessionToken])
+  @@map("sessions")
+}
+
+model Post {
+  id            String         @id @default(cuid())
+  authorId      String
+  caption       String?
+  imageUrl      String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments      Comment[]
+  likes         Like[]
+  savedBy       SavedPost[]
+  notifications Notification[]
+
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("posts")
+}
+
+model Comment {
+  id        String         @id @default(cuid())
+  postId    String
+  authorId  String
+  content   String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  post      Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([authorId])
+  @@map("comments")
+}
+
+model Like {
+  id        String         @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime       @default(now())
+
+  post      Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+  @@map("likes")
+}
+
+model Follow {
+  id          String       @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime     @default(now())
+
+  follower    User         @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User         @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+model SavedPost {
+  id        String         @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime       @default(now())
+
+  post      Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+  @@map("saved_posts")
+}
+
+model Story {
+  id        String         @id @default(cuid())
+  authorId  String
+  mediaUrl  String
+  caption   String?
+  expiresAt DateTime?
+  createdAt DateTime       @default(now())
+
+  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("stories")
+}
+
+model Conversation {
+  id           String                    @id @default(cuid())
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  userId         String
+  lastReadAt     DateTime?
+  joinedAt       DateTime     @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+model Notification {
+  id             String    @id @default(cuid())
+  recipientId    String
+  actorId        String
+  type           String    // "LIKE" | "COMMENT" | "FOLLOW" | "MESSAGE"
+  postId         String?
+  commentId      String?
+  conversationId String?
+  messageId      String?
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  recipient      User      @relation("ReceivedNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor          User      @relation("SentNotifications", fields: [actorId], references: [id], onDelete: Cascade)
+  post           Post?     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([readAt])
+  @@map("notifications")
+}
+
+model UserPresence {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  lastSeenAt DateTime @default(now())
+  isOnline   Boolean  @default(true)
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([lastSeenAt])
+  @@map("user_presence")
+}
