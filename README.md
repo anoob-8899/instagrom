@@ -48,72 +48,104 @@
 
 ---
 
-# Running INSTAGROM on a Local Classroom Network
+# Classroom LAN Hosting
 
-Follow these step-by-step instructions to set up and run INSTAGROM in your classroom.
+Follow these step-by-step instructions to configure and host INSTAGROM for your local classroom network.
 
-### 📋 Prerequisites (Host PC)
-* **Operating System**: Windows 10/11 (or macOS/Linux)
+### 🐍 Python Server (Zero Node.js Dependency)
+
+You can run INSTAGROM completely in **Python** (FastAPI + SQLite + Tailwind UI):
+
+1. **Install Python Dependencies**:
+   ```powershell
+   pip install -r requirements.txt
+   ```
+
+2. **Start the Python LAN Server**:
+   ```powershell
+   python run.py
+   ```
+
+3. **Open in Browser**:
+   * Local: `http://localhost:3000`
+   * LAN: `http://<HOST-IP>:3000` (e.g. `http://10.200.69.74:3000`)
+
+4. **Run Multi-Client Automated Tests**:
+   ```powershell
+   python scripts/test_python_direct.py
+   ```
+
+---
+
+### 📋 Node.js / Next.js Setup (Alternative)
+* **Operating System**: Windows 10/11
 * **Node.js**: v18.17.0 or higher
-* **Network**: Host PC and all student devices must be connected to the **same Wi-Fi router or Local Area Network (LAN)**.
+* **Network**: Host PC and all student devices must connect to the **same Wi-Fi router / LAN switch**.
+* **Dependencies & Database**:
+  ```powershell
+  npm install
+  npm run db:push
+  ```
+  *(Note: `data/instagrom.sqlite` remains the single shared SQLite database. Existing users, posts, and media are safely preserved).*
 
 ---
 
-### 🛠️ 1. Host Machine Setup & Installation
+### 🚀 2. Starting the Server
+Start the Next.js server so it binds to `0.0.0.0:3000` (listening on all local interfaces):
 
-Open **PowerShell** or **Command Prompt** in the project directory:
-
+#### Recommended Production Mode:
 ```powershell
-# 1. Install all required dependencies
-npm install
-
-# 2. Push Prisma schema to the local SQLite database (Non-destructive)
-npm run db:push
+npm run build
+npm run start:lan
 ```
+*(Runs: `next start -H 0.0.0.0 -p 3000`)*
 
-> [!NOTE]
-> `data/instagrom.sqlite` will be created automatically if it doesn't exist. Existing posts, comments, accounts, and messages are always preserved.
+#### Development Mode:
+```powershell
+npm run dev:lan
+```
+*(Runs: `next dev -H 0.0.0.0 -p 3000`)*
+
+> [!IMPORTANT]
+> **Keep the PowerShell window open** while class is in session. The host PC acts as the local classroom server.
 
 ---
 
-### 🔍 2. Identifying the Host IPv4 Address
+### 🔍 3. Finding the Host IP Address
+To share the URL with students, find your computer's local Wi-Fi or Ethernet IPv4 address:
 
-To allow students to connect, you need the Host PC's local IPv4 address.
-
-#### Option A: Use the Built-In INSTAGROM Tool (Recommended)
+#### Option A: Built-in INSTAGROM Detection Tool (Recommended)
 ```powershell
 npm run lan:info
 ```
-This utility automatically inspects your network adapters and displays the exact connection URLs:
+This utility inspects all network interfaces, filters out virtual/VPN adapters (e.g. VirtualBox, VMware, Tailscale, APIPA `169.254.x.x`), and displays your active LAN address:
 ```text
 ================================================================
-   📸 INSTAGROM — LOCAL CLASSROOM LAN HOST CONFIGURATION        
+   INSTAGROM CLASSROOM SERVER
 ================================================================
-  Host Computer Name : VINCENT-PC
-  Port               : 3000
-  Binding            : 0.0.0.0 (All local interfaces)
 
-  🌐 Active LAN Connection URLs (For Student Computers):
-  ────────────────────────────────────────────────────────
-  [1] Adapter "Wi-Fi":
-      IPv4 Address : 10.71.119.74
-      Student URL  : http://10.71.119.74:3000
-  ────────────────────────────────────────────────────────
+Local:
+http://localhost:3000
+
+LAN:
+http://10.200.69.74:3000 (Wi-Fi)
+
+Other computers on the same Wi-Fi can connect using the LAN address.
 ```
 
 #### Option B: Windows `ipconfig` Command
-1. Open PowerShell and type:
+1. Open PowerShell and run:
    ```powershell
    ipconfig
    ```
-2. Look for your active adapter (e.g., `Wireless LAN adapter Wi-Fi` or `Ethernet adapter`).
-3. Locate the **IPv4 Address** (e.g., `10.71.119.74` or `192.168.1.25`).
+2. Look under `Wireless LAN adapter Wi-Fi` (or `Ethernet adapter`).
+3. Locate the line **IPv4 Address** (e.g., `10.200.69.74` or `192.168.1.25`).
+4. *Do not use virtual adapter IPs (like `192.168.56.1` for VirtualBox or `169.254.x.x`).*
 
 ---
 
-### 🛡️ 3. Windows Firewall Configuration
-
-If student computers cannot reach port `3000`, open **PowerShell as Administrator** on the Host PC and run:
+### 🛡️ 4. Windows Firewall Setup
+Allow inbound TCP traffic on port `3000` for the Private network profile. Run **PowerShell as Administrator**:
 
 ```powershell
 New-NetFirewallRule `
@@ -125,95 +157,89 @@ New-NetFirewallRule `
   -Profile Private
 ```
 
-> [!IMPORTANT]
-> This rule opens port 3000 only on the **Private** local network profile, ensuring the server is accessible only on the classroom LAN and never exposed to the public internet.
+> [!NOTE]
+> Ensure your Windows Network Profile is set to **Private** (Settings > Network & internet > Wi-Fi/Ethernet > Properties > Network Profile Type = Private).
 
 ---
 
-### 🚀 4. Starting the Server for the Classroom
+### 💻 5. Client Connection (Student Devices)
+Student computers only need a web browser (Chrome, Edge, Firefox, Safari). They do **NOT** need Node.js, Git, or a copy of the database.
 
-#### Recommended Classroom Production Mode (Fast & Optimized):
-```powershell
-npm run build
-npm run start:lan
-```
-
-#### Development Mode (With Hot-Reloading):
-```powershell
-npm run dev:lan
-```
-
-Both commands bind to `0.0.0.0:3000`, allowing inbound connections from any device on the local network.
-
-> [!IMPORTANT]
-> **Keep the terminal window open** while class is in session. The Host PC must stay powered on and connected to the Wi-Fi.
-
----
-
-### 💻 5. Student Device Connection Guide
-
-On each student computer / tablet / phone connected to the classroom Wi-Fi:
-
-1. Open any modern web browser (Google Chrome, Microsoft Edge, Mozilla Firefox, Safari).
-2. Type the Host PC's address in the URL bar:
+1. Connect the student laptop/tablet/phone to the **same classroom Wi-Fi**.
+2. Open any web browser.
+3. In the address bar, type:
    ```text
    http://<HOST-IP>:3000
    ```
-   *(Example: `http://10.71.119.74:3000` or `http://192.168.1.25:3000`)*
+   *Example: `http://10.200.69.74:3000` or `http://192.168.1.25:3000`*
 
 > [!WARNING]
-> Do **NOT** type `localhost:3000` on student computers. `localhost` refers to the student's own computer. Students must enter the Host PC's IPv4 address.
-
-3. Students can now:
-   * **Register**: Create their individual student profile (`/register`).
-   * **Login**: Access their account with secure session cookies (`/login`).
-   * **Explore Feed**: Browse, create posts with photo uploads, like, and comment (`/feed`).
-   * **Follow Classmates**: Follow peers and view user profiles (`/profile/[username]`).
-   * **Direct Messaging**: Chat in real time with classmates (`/messages`).
-   * **Realtime Notifications**: Receive instant alerts for likes, comments, follows, and direct messages (`/notifications`).
+> Do **NOT** type `http://localhost:3000` on student computers. `localhost` refers to the student computer itself. Students must enter the Host PC's LAN IPv4 address.
 
 ---
 
-### 🧪 6. Testing & Multi-Computer Verification
+### 🔌 6. Port Testing & Connectivity Verification
 
-Automated test suites are included to verify database integrity, authentication, and multi-client LAN interactions:
-
+#### On the Host PC:
+Check that Next.js is actively listening on all interfaces:
 ```powershell
-# 1. Multi-Student LAN Simulation Test (Simulates Student A, B, and C over HTTP)
-npm run test:lan
+netstat -ano | findstr :3000
+```
+*(Expected output includes `TCP 0.0.0.0:3000 ... LISTENING`)*
 
-# 2. Test against a specific LAN IP address:
-$env:HOST_URL="http://10.71.119.74:3000"; npm run test:lan
+#### On a Student / Client PC (or Host):
+Test direct TCP connectivity to port 3000:
+```powershell
+Test-NetConnection 10.200.69.74 -Port 3000
+```
+Expected output:
+```text
+TcpTestSucceeded : True
+```
 
-# 3. Realtime SSE Connection Test
-npx tsx scripts/test-sse.ts
-
-# 4. Auth & Database Multi-User Isolation Test
-npx tsx scripts/test-auth.ts
+#### Automated Multi-Client LAN Test:
+Simulate concurrent multi-student browser activity over LAN HTTP:
+```powershell
+$env:HOST_URL="http://10.200.69.74:3000"; npm run test:lan
 ```
 
 ---
 
-### 🛑 7. Shutdown and Restart Procedure
+### ❓ 7. Troubleshooting Connection Issues
 
-* **To Stop the Server**: In the Host PC terminal window, press `Ctrl + C`.
-* **To Restart the Server**: Run `npm run start:lan` (or `npm run dev:lan`).
-* **Data Persistence**: All users, posts, comments, likes, follows, messages, and uploaded photos remain permanently saved on the Host PC in `data/instagrom.sqlite` and `public/uploads/`.
+If a student computer cannot load the page:
+
+1. **Test-NetConnection Result is False**:
+   - Verify Windows Firewall rule is active on the Host (`Get-NetFirewallRule -DisplayName "INSTAGROM*"`).
+   - Ensure the Host PC network profile is set to **Private**.
+   - Check that the Host IP address has not changed (`npm run lan:info`).
+2. **Wi-Fi Client Isolation (AP Isolation)**:
+   - Some institutional / school guest Wi-Fi networks block device-to-device communication.
+   - If `Test-NetConnection` fails despite correct IP and Firewall, AP isolation is active on the router.
+   - *Fix*: Connect Host and student computers to a dedicated Wi-Fi router, mobile hotspot, or local network switch.
+3. **Different Subnets / Wi-Fi Networks**:
+   - Ensure student devices are not on 5GHz Guest while Host is on 2.4GHz Main. Both must be on the same subnet.
+4. **Server Not Running**:
+   - Check that the Host PowerShell window is running `npm run start:lan` and displaying `Ready`.
 
 ---
 
-### ❓ 8. Troubleshooting Connection Issues
+### 🛑 8. How to Stop the Server
+In the Host PC PowerShell window running INSTAGROM, press:
+```powershell
+Ctrl + C
+```
+Type `Y` if prompted to terminate batch job.
 
-If a student computer cannot connect, follow these diagnostic steps in order:
+---
 
-1. **Same Network Check**: Confirm both the Host PC and the student computer are connected to the exact same Wi-Fi SSID or LAN switch.
-2. **Verify Host IP**: Run `npm run lan:info` (or `ipconfig`) on the Host PC to confirm the current IPv4 address has not changed.
-3. **Verify Server Status**: Confirm the Host terminal displays `Ready` and is actively running `next start -H 0.0.0.0 -p 3000`.
-4. **Port Check**: Verify the URL includes `:3000` (e.g. `http://10.71.119.74:3000`).
-5. **Firewall Rule**: Run the Windows Firewall PowerShell command (from Section 3) with Administrator privileges.
-6. **Network Profile**: Ensure Windows network profile is set to **Private** (Settings > Network & Internet > Properties > Network Profile Type = Private).
-7. **AP Isolation**: Some campus/enterprise guest Wi-Fi networks block device-to-device communication (Client/AP Isolation). If this occurs, connect both computers to a local Wi-Fi router, mobile hotspot, or Ethernet switch.
-8. **Check Host Terminal**: Check the Host PC terminal for any runtime exceptions or errors.
+### 🔄 9. How to Restart the Server
+To restart the server at any time:
+```powershell
+cd "d:\Vincnet\10.Websites\06.Instagrom"
+npm run start:lan
+```
+*(All posts, comments, likes, messages, and student accounts in `data/instagrom.sqlite` and images in `public/uploads/` will persist).*
 
 ---
 
